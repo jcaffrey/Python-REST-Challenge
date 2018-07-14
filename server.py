@@ -2,6 +2,9 @@ from flask import Flask, request, jsonify
 import argparse
 import sys
 import csv
+from helpers import validateAndInferAge
+
+people_list = []
 
 #Web app
 app = Flask(__name__)
@@ -16,38 +19,45 @@ def pingServer():
 @app.route('/people',methods=['GET'])
 def getPeople():
     '''
-    Return a standard JSON block of people in any order of format. Must be valid JSON
+    Return array of people objects
     '''
-    # TODO
-    pass
+    return jsonify(people_list)
     
 
 @app.route('/people/age',methods=['GET'])
 def sortPeopleByAge():
     '''
-    Returns Json block containing a list of people sorted by age youngest to oldest
-    TODO: If age does not exist, infer age from date of 3rd grade graduation
+    Return list of people sorted by age youngest to oldest
     '''
-    # TODO
-    pass
+    return jsonify(sorted(people_list, key=lambda person: person['age']))    
 
 @app.route('/ids/lastname/<lastname>',methods=['GET'])
 def getIdsByLastName(lastname):
     '''
-    Returns Json block of ids found for the given last name
-    Using path params
+    Return array of ids found for the given last name
     '''
-    # TODO
-    pass
+    return jsonify([person['id'] for person in people_list if person['last'] == lastname])
 
-
-# TODO Create an endpoint POST that accepts a 'person' and appends it to our people (write to the file and update the store). 
-# Returns the newley updated JSON block of all people.
-# New endpoint goes here.
-
+@app.route('/person',methods=['POST'])
+def postPerson():
+    '''
+    Add person to people list if not already there, Return array of people objects
+    '''
+    req_data = request.get_json()
+    age = validateAndInferAge(req_data['age'], req_data['graduationDate'])
+    
+    if req_data['id'] not in map(lambda person: person['id'], people_list):
+        people_list.append({
+            'id': req_data['id'],
+            'first': req_data['first'],
+            'last': req_data['last'],
+            'age': age,
+            'github': req_data['github'],
+            'graduationDate': req_data['graduationDate']
+        })
+    return jsonify(people_list)
 
 # Optional Challenge: Persist the data somehow
-
 
 if __name__ == '__main__':
     
@@ -64,25 +74,23 @@ if __name__ == '__main__':
     filename = args.file
 
     # store people in dict where key is id and value is dict of attributes
-    people_list = []
     with open(filename, 'rb') as f:
         # skip first line
         next(f, None)
 
         reader = csv.DictReader(f, restval='', fieldnames=('ID','First','Last','Age','GithubAcct','Date of 3rd Grade Graduation'))
         for line in reader:
-            personId = line['ID']
-            if personId:
-                people_list.append({
-                    personId: {
-                        'first': line['First'],
-                        'last': line['Last'],
-                        'age': line['Age'],
-                        'github': line['GithubAcct'],
-                        'graduationDate': line['Date of 3rd Grade Graduation']
-                    }
-                })
-    print people_list
+            graduationDate = line['Date of 3rd Grade Graduation']
+            age = validateAndInferAge(line['Age'], graduationDate)
+
+            people_list.append({
+                'id': line['ID'],
+                'first': line['First'],
+                'last': line['Last'],
+                'age': age,
+                'github': line['GithubAcct'],
+                'graduationDate': graduationDate
+            })
 
     app.debug=args.debug
     app.run(host='0.0.0.0',port=args.port)

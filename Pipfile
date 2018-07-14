@@ -9,6 +9,8 @@ name = "pypi"
 flask = "*"
 jsonify = "*"
 request = "*"
+datetime = "*"
+python-dateutil = "*"
 
 [requires]
 python_version = "2.7"
