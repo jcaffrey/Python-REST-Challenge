@@ -3,6 +3,7 @@ import argparse
 import sys
 import csv
 from helpers import validateAndInferAge
+import shelve
 
 people_list = []
 
@@ -57,8 +58,6 @@ def postPerson():
         })
     return jsonify(people_list)
 
-# Optional Challenge: Persist the data somehow
-
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser()
@@ -68,29 +67,32 @@ if __name__ == '__main__':
     parser.add_argument("file", help="File to import data from")
     args = parser.parse_args()
 
-    # TODO: Initialize any pre-application start code here if needed
-
     port = args.port
     filename = args.file
+    filenameWithoutExtension = filename.split('.', 1)[0]
 
-    # store people in dict where key is id and value is dict of attributes
-    with open(filename, 'rb') as f:
-        # skip first line
-        next(f, None)
+    data_store = shelve.open(filenameWithoutExtension, writeback=True)
 
-        reader = csv.DictReader(f, restval='', fieldnames=('ID','First','Last','Age','GithubAcct','Date of 3rd Grade Graduation'))
-        for line in reader:
-            graduationDate = line['Date of 3rd Grade Graduation']
-            age = validateAndInferAge(line['Age'], graduationDate)
+    if data_store.has_key(filenameWithoutExtension):
+        people_list = data_store[filenameWithoutExtension]
+    else:
+        with open(filename, 'rb') as f:
+            next(f, None)
 
-            people_list.append({
-                'id': line['ID'],
-                'first': line['First'],
-                'last': line['Last'],
-                'age': age,
-                'github': line['GithubAcct'],
-                'graduationDate': graduationDate
-            })
+            reader = csv.DictReader(f, restval='', fieldnames=('ID','First','Last','Age','GithubAcct','Date of 3rd Grade Graduation'))
+            for line in reader:
+                graduationDate = line['Date of 3rd Grade Graduation']
+                age = validateAndInferAge(line['Age'], graduationDate)
+
+                people_list.append({
+                    'id': line['ID'],
+                    'first': line['First'],
+                    'last': line['Last'],
+                    'age': age,
+                    'github': line['GithubAcct'],
+                    'graduationDate': graduationDate
+                })
+                data_store[filenameWithoutExtension] = people_list
 
     app.debug=args.debug
     app.run(host='0.0.0.0',port=args.port)
